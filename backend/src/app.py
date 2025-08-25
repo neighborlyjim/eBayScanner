@@ -1,7 +1,8 @@
 # app.py
 from flask import Flask, render_template_string, request, render_template, redirect
 from apscheduler.schedulers.background import BackgroundScheduler
-from scout import search_ending_soon, is_undervalued
+from .config import Config
+from .scout import search_ebay, check_all_tracked_items, search_ending_soon, is_undervalued
 from flask_sqlalchemy import SQLAlchemy
 from ebaysdk.finding import Connection as Finding
 import logging

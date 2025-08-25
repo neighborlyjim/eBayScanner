@@ -1,5 +1,5 @@
-# Worker-specific Dockerfile
-FROM python:3.13-slim AS worker
+# Use Python 3.13 slim image
+FROM python:3.13-slim
 
 # Set working directory
 WORKDIR /app
@@ -23,16 +23,22 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY src/ ./src/
+COPY templates/ ./templates/
+COPY migrations/ ./migrations/
+COPY alembic.ini ./
 
 # Create a non-root user
-RUN useradd --create-home --shell /bin/bash worker && \
-    chown -R worker:worker /app
-USER worker
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
-# Health check for worker
-HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 \
-    CMD python -c "import psutil; exit(0 if any('scout.py' in p.cmdline() for p in psutil.process_iter()) else 1)" || exit 1
+# Expose port
+EXPOSE 5000
 
-# Default command for worker
-CMD ["python", "scout.py"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Default command - run web application
+CMD ["python", "src/app.py"]
