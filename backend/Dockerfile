@@ -12,6 +12,8 @@ ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
+    libpq-dev \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
@@ -21,7 +23,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY src/ ./src/
+COPY templates/ ./templates/
+COPY migrations/ ./migrations/
+COPY alembic.ini ./
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash appuser && \
@@ -35,5 +40,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Default command
-CMD ["python", "app.py"]
+# Default command - run web application
+CMD ["python", "src/app.py"]

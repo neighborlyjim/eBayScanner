@@ -1,7 +1,8 @@
 # app.py
 from flask import Flask, render_template_string, request, render_template, redirect
 from apscheduler.schedulers.background import BackgroundScheduler
-from scout import search_ending_soon, is_undervalued
+from .config import Config
+from .scout import search_ebay, check_all_tracked_items, search_ending_soon, is_undervalued
 from flask_sqlalchemy import SQLAlchemy
 from ebaysdk.finding import Connection as Finding
 import logging
@@ -58,22 +59,13 @@ scheduler.add_job(poll_ebay, "interval", minutes=5)
 scheduler.start()
 
 # Replace with your eBay API credentials
-EBAY_APP_ID = "YourEbayAppID"
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Docker"""
-    try:
-        # Test database connection
-        db.session.execute('SELECT 1')
-        return {"status": "healthy", "database": "connected"}, 200
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}, 500
+EBAY_APP_ID = os.getenv('EBAY_APP_ID')
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
-        query = request.form.get('query')
+        # Handle both form data and JSON
+        query = request.form.get('query') or request.json.get('query') if request.is_json else request.form.get('query')
         logging.debug(f"Search query received: {query}")
 
         if query:
@@ -84,10 +76,23 @@ def home():
                 items = response.reply.searchResult.item
                 logging.debug(f"eBay API response: {items}")
 
-                # Render the results on the index page
+                # Return JSON for frontend API calls
+                if request.is_json:
+                    results = []
+                    for item in items:
+                        results.append({
+                            'title': item.title,
+                            'price': f"${item.sellingStatus.currentPrice.value}",
+                            'url': item.viewItemURL
+                        })
+                    return {'results': results}
+                
+                # Render the results on the index page for form submissions
                 return render_template('index.html', results=items)
             except Exception as e:
                 logging.error(f"Error fetching eBay data: {e}")
+                if request.is_json:
+                    return {'error': 'Error fetching data from eBay.'}, 500
                 return render_template('index.html', results=[], error="Error fetching data from eBay.")
 
     return render_template('index.html', results=[])

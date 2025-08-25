@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from ebaysdk.finding import Connection as Finding
 from ebaysdk.exception import ConnectionError
-import config
+from . import config
 
 def search_ending_soon(limit=25):
     # Adjusted to use the Finding API instead of Browse API
