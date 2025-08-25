@@ -12,8 +12,11 @@ terraform {
   # Uncomment and configure for remote state management
   # backend "s3" {
   #   bucket = "your-terraform-state-bucket"
-  #   key    = "${var.project_name}/${var.app_name}/${var.environment}/terraform.tfstate"
-  #   region = var.aws_region
+  #   key    = "ebay-scanner/terraform.tfstate"
+  #   region = "us-east-1"
+  #   
+  #   # Use workspace for environment separation
+  #   workspace_key_prefix = "environments"
   # }
 }
 
@@ -29,8 +32,6 @@ provider "aws" {
         Environment       = var.environment
         ManagedBy         = "Terraform"
         VPCName          = var.vpc_name
-        TerraformVersion = "~> 5.0"
-        DeployedAt       = timestamp()
       },
       var.additional_tags
     )

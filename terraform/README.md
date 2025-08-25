@@ -1,186 +1,244 @@
-# Terraform Infrastructure for eBay Scanner
+# 🚀 Multi-Environment Deployment Guide
 
-This directory contains Terraform configurations to set up AWS infrastructure for the eBay Scanner application.
+This guide shows you how to deploy the eBay Scanner to dev and prod environments using Terraform with environment-specific configurations.
 
-## Overview
+## 📁 Environment Files
 
-The Terraform configuration creates:
+| File | Purpose | Usage |
+|------|---------|-------|
+| `dev.tfvars` | Development environment config | Cost-optimized, single instances, default VPC |
+| `prod.tfvars` | Production environment config | High availability, custom VPC, load balancer |
+| `deploy.ps1` | Deployment script | Handles environment variables and deployment |
+| `set-env.ps1` | Environment setup | Interactive script to set required variables |
 
-- **ECR Repositories**: For storing Docker images
-  - `ebay-scanner-web`: Web application container
-  - `ebay-scanner-worker`: Background worker container
-- **IAM Resources**: For GitHub Actions authentication
-  - IAM user with ECR push permissions
-  - OIDC provider for secure authentication (recommended)
-  - IAM roles and policies
-- **Lifecycle Policies**: Automatic cleanup of old Docker images
+## 🔧 Quick Start
 
-## Quick Start
+### 1. **Set Environment Variables**
+```powershell
+# Interactive setup (recommended)
+.\set-env.ps1 -Environment dev
 
-### Prerequisites
-
-1. AWS CLI installed and configured
-2. Terraform >= 1.0 installed
-3. Appropriate AWS permissions to create ECR repositories and IAM resources
-4. **AWS Free Tier account** (recommended for cost optimization)
-
-### Free Tier Optimization
-
-This configuration is optimized for AWS Free Tier usage:
-- **ECR Storage**: Uses only ~450MB of 500MB free storage
-- **Image Scanning**: Disabled by default (100 scans/month limit)
-- **Lifecycle Policies**: Aggressive cleanup to minimize storage costs
-- **Regional Resources**: All in us-east-1 to avoid data transfer charges
-
-See `FREE_TIER_OPTIMIZATION.md` for detailed cost management strategies.
-
-### Setup Steps
-
-1. **Copy example variables:**
-   ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   ```
-
-2. **Edit terraform.tfvars:**
-   ```hcl
-   aws_region   = "us-east-1"
-   environment  = "dev"
-   project_name = "ebay-scanner"
-   github_org   = "your-github-username"
-   github_repo  = "eBayScanner"
-   ```
-
-3. **Initialize Terraform:**
-   ```bash
-   terraform init
-   ```
-
-4. **Plan the deployment:**
-   ```bash
-   terraform plan
-   ```
-
-5. **Apply the configuration:**
-   ```bash
-   terraform apply
-   ```
-
-6. **Get outputs for GitHub Actions:**
-   ```bash
-   terraform output github_secrets_summary
-   ```
-
-### GitHub Actions Setup
-
-After running Terraform, you'll need to add these secrets to your GitHub repository:
-
-1. Go to your GitHub repository
-2. Navigate to Settings → Secrets and variables → Actions
-3. Add the following secrets:
-
-```bash
-# Get these values from Terraform outputs
-AWS_ACCESS_KEY_ID=$(terraform output -raw github_actions_access_key_id)
-AWS_SECRET_ACCESS_KEY=$(terraform output -raw github_actions_secret_access_key)
-AWS_ACCOUNT_ID=$(terraform output -raw aws_account_id)
-AWS_REGION=$(terraform output -raw aws_region)
+# Or set manually
+$Env:TF_VAR_ebay_client_id = "your-ebay-client-id"
+$Env:TF_VAR_ebay_client_secret = "your-ebay-client-secret"
+$Env:TF_VAR_ebay_app_id = "your-ebay-app-id"
+$Env:TF_VAR_ebay_dev_id = "your-ebay-dev-id"
+$Env:TF_VAR_db_password = "your-database-password"
 ```
 
-### Security Recommendations
-
-**Option 1: OIDC (Recommended)**
-Use the OIDC role instead of access keys for better security:
-```bash
-# Use this role ARN in GitHub Actions
-terraform output github_actions_oidc_role_arn
+### 2. **Deploy to Development**
+```powershell
+.\deploy.ps1 -Environment dev
 ```
 
-**Option 2: Access Keys**
-If using access keys, rotate them regularly and store them securely.
+### 3. **Deploy to Production**
+```powershell
+.\deploy.ps1 -Environment prod
+```
 
-## Terraform State Management
+## 🏗️ Environment Differences
 
-For production use, consider using remote state management:
+### **Development Environment** (`dev.tfvars`)
+- **Cost**: Free tier optimized (~$0/month)
+- **VPC**: Uses AWS default VPC (no NAT Gateway costs)
+- **Scale**: 1 web + 1 worker instance
+- **Resources**: 256 CPU / 512 MB RAM per service
+- **Load Balancer**: Disabled (direct container access)
+- **Logs**: 7-day retention
+- **Database**: `ebay_scanner_dev` database
 
-1. Create an S3 bucket for state storage
-2. Create a DynamoDB table for state locking
-3. Uncomment and configure the backend in `main.tf`
+### **Production Environment** (`prod.tfvars`)
+- **Cost**: Production scale (~$50-100/month)
+- **VPC**: Custom VPC with public/private subnets
+- **Scale**: 2 web + 2 worker instances (high availability)
+- **Resources**: 512 CPU / 1024 MB RAM per service
+- **Load Balancer**: Enabled with SSL termination
+- **Logs**: 30-day retention
+- **Database**: `ebay_scanner_prod` database
 
-Example backend configuration:
+## 📋 Environment Variables Reference
+
+### **Required Variables** (set via `TF_VAR_` prefix)
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `ebay_client_id` | eBay API Client ID | `your-client-id` |
+| `ebay_client_secret` | eBay API Client Secret | `your-client-secret` |
+| `ebay_app_id` | eBay Application ID | `your-app-id` |
+| `ebay_dev_id` | eBay Developer ID | `your-dev-id` |
+| `db_password` | Database password | `secure-password` |
+
+### **Optional AWS Variables**
+| Variable | Description | Note |
+|----------|-------------|------|
+| `AWS_ACCESS_KEY_ID` | AWS Access Key | Use if not using AWS CLI |
+| `AWS_SECRET_ACCESS_KEY` | AWS Secret Key | Use if not using AWS CLI |
+| `AWS_SESSION_TOKEN` | AWS Session Token | For temporary credentials |
+
+## 🎯 Deployment Commands
+
+### **Manual Terraform Commands**
+```powershell
+# Development
+terraform plan -var-file="dev.tfvars"
+terraform apply -var-file="dev.tfvars"
+
+# Production  
+terraform plan -var-file="prod.tfvars"
+terraform apply -var-file="prod.tfvars"
+
+# Destroy environment
+terraform destroy -var-file="dev.tfvars"
+```
+
+### **Using Deployment Script** (Recommended)
+```powershell
+# Set environment variables interactively
+.\set-env.ps1 -Environment dev
+
+# Deploy with validation and confirmation
+.\deploy.ps1 -Environment dev
+```
+
+## 🔄 Environment Separation Strategies
+
+### **Option 1: Separate .tfvars Files** (Current)
+```
+terraform/
+├── dev.tfvars     # Development config
+├── prod.tfvars    # Production config
+├── deploy.ps1     # Deployment script
+└── *.tf          # Shared Terraform code
+```
+
+### **Option 2: Terraform Workspaces** (Alternative)
+```powershell
+# Create workspaces
+terraform workspace new dev
+terraform workspace new prod
+
+# Switch environments
+terraform workspace select dev
+terraform apply -var-file="dev.tfvars"
+
+terraform workspace select prod  
+terraform apply -var-file="prod.tfvars"
+```
+
+### **Option 3: Separate State Files** (Advanced)
+```powershell
+# Different state files per environment
+terraform apply -var-file="dev.tfvars" -state="dev.tfstate"
+terraform apply -var-file="prod.tfvars" -state="prod.tfstate"
+```
+
+## 🔒 Security Best Practices
+
+### **Environment Variables**
+- ✅ Use `TF_VAR_` prefix for Terraform variables
+- ✅ Never commit actual secrets to git
+- ✅ Use placeholder values in `.tfvars` files
+- ✅ Set real values via environment variables
+
+### **AWS Credentials**
+```powershell
+# Option 1: AWS CLI (recommended)
+aws configure
+
+# Option 2: Environment variables
+$Env:AWS_ACCESS_KEY_ID = "your-access-key"
+$Env:AWS_SECRET_ACCESS_KEY = "your-secret-key"
+
+# Option 3: IAM roles (for EC2/containers)
+# No manual credentials needed
+```
+
+### **State File Security**
 ```hcl
+# Enable remote state for production
 terraform {
   backend "s3" {
-    bucket         = "your-terraform-state-bucket"
-    key            = "ebay-scanner/terraform.tfstate"
-    region         = "us-east-1"
+    bucket = "your-terraform-state-bucket"
+    key    = "ebay-scanner/terraform.tfstate"
+    region = "us-east-1"
+    
+    # Enable state locking and encryption
     dynamodb_table = "terraform-state-lock"
     encrypt        = true
   }
 }
 ```
 
-## Variables
+## 📊 Resource Comparison
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `aws_region` | AWS region for resources | `us-east-1` |
-| `environment` | Environment name | `dev` |
-| `project_name` | Project name prefix | `ebay-scanner` |
-| `github_org` | GitHub organization/username | `neighborlyjim` |
-| `github_repo` | GitHub repository name | `eBayScanner` |
-| `ecr_image_retention_count` | Number of images to retain | `10` |
-| `enable_image_scanning` | Enable ECR image scanning | `true` |
+| Resource | Dev Environment | Prod Environment |
+|----------|----------------|------------------|
+| **VPC** | Default VPC | Custom VPC (10.0.0.0/16) |
+| **Subnets** | Default public | Public + Private subnets |
+| **ECS Tasks** | 2 (1 web + 1 worker) | 4 (2 web + 2 worker) |
+| **CPU/Memory** | 256/512 per task | 512/1024 per task |
+| **Load Balancer** | None | Application LB |
+| **NAT Gateway** | None | 1 per AZ |
+| **CloudWatch Logs** | 7 days | 30 days |
+| **Estimated Cost** | ~$0/month | ~$50-100/month |
 
-## Outputs
+## 🚨 Troubleshooting
 
-| Output | Description |
-|--------|-------------|
-| `ecr_repository_web_url` | Web application ECR repository URL |
-| `ecr_repository_worker_url` | Worker application ECR repository URL |
-| `github_actions_access_key_id` | GitHub Actions access key ID |
-| `github_actions_secret_access_key` | GitHub Actions secret access key (sensitive) |
-| `github_actions_oidc_role_arn` | OIDC role ARN (recommended for security) |
+### **Common Issues**
 
-## Manual Docker Commands
+#### Missing Environment Variables
+```
+❌ Missing required environment variables:
+  - TF_VAR_ebay_client_id
+```
+**Solution**: Run `.\set-env.ps1 -Environment dev`
 
-To manually build and push images:
+#### AWS Credentials Not Found
+```
+❌ Error: No valid credential sources found
+```
+**Solution**: Run `aws configure` or set AWS environment variables
 
-```bash
-# Login to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(terraform output -raw aws_account_id).dkr.ecr.us-east-1.amazonaws.com
-
-# Build and tag images
-docker build -t ebay-scanner-web .
-docker build -f Dockerfile.worker -t ebay-scanner-worker .
-
-# Tag for ECR
-docker tag ebay-scanner-web:latest $(terraform output -raw ecr_repository_web_url):latest
-docker tag ebay-scanner-worker:latest $(terraform output -raw ecr_repository_worker_url):latest
-
-# Push to ECR
-docker push $(terraform output -raw ecr_repository_web_url):latest
-docker push $(terraform output -raw ecr_repository_worker_url):latest
+#### Terraform State Lock
+```
+❌ Error: Error acquiring the state lock
+```
+**Solution**: 
+```powershell
+terraform force-unlock LOCK_ID
 ```
 
-## Cleanup
-
-To destroy all resources:
-```bash
-terraform destroy
+#### Resource Already Exists
+```
+❌ Error: resource already exists
+```
+**Solution**: Import existing resource or use different naming
+```powershell
+terraform import aws_ecr_repository.web ebay-scanner-web
 ```
 
-**Warning**: This will delete all ECR repositories and their contents!
+## 🎉 Success Indicators
 
-## Troubleshooting
+After successful deployment, you should see:
 
-### Common Issues
+```
+✅ Terraform configuration is valid
+✅ Terraform plan completed successfully  
+✅ Deployment to dev completed successfully! 🎉
 
-1. **Insufficient permissions**: Ensure your AWS credentials have permissions to create ECR repositories and IAM resources
-2. **Repository already exists**: If repositories exist from previous setups, Terraform will import them
-3. **GitHub Actions failing**: Verify all secrets are correctly set in GitHub repository settings
+Outputs:
+ecr_repository_web_url = "058727362332.dkr.ecr.us-east-1.amazonaws.com/ebay-scanner-web"
+ecs_cluster_name = "ebay-scanner-cluster"
+deployment_summary = {
+  app_name = "ebay-scanner"
+  environment = "dev"
+  using_modules = true
+}
+```
 
-### Getting Help
+## 🚀 Next Steps
 
-- Check Terraform plan output before applying
-- Review AWS CloudTrail logs for permission issues
-- Verify ECR repository access in AWS Console
+1. **Build and push Docker images** to ECR repositories
+2. **Configure database** connection and run migrations
+3. **Set up monitoring** with CloudWatch alarms
+4. **Configure CI/CD** pipeline for automated deployments
+5. **Test application** functionality in both environments
