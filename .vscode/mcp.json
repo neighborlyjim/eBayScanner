@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "terraform": {
+      "command": "docker",
+      "args": ["exec", "-i", "upbeat_ride", "/bin/terraform-mcp-server"],
+      "env": {}
+    },
+    "git": {
+      "command": "uvx", 
+      "args": ["mcp-server-git", "--repository", "f:\\Repos\\Business\\eBayScanner"],
+      "env": {}
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "f:\\Repos\\Business\\eBayScanner"],
+      "env": {}
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"],
+      "env": {}
+    },
+    "time": {
+      "command": "uvx",
+      "args": ["mcp-server-time"],
+      "env": {}
+    }
+  }
+}

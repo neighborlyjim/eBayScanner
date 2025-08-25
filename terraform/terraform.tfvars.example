@@ -1,0 +1,95 @@
+# Example terraform.tfvars file for eBay Scanner multi-app deployment
+# Copy this file to terraform.tfvars and customize for your deployment
+
+# Basic application configuration
+project_name = "BusinessApps"
+app_name     = "ebay-scanner"
+environment  = "development"
+
+# AWS configuration
+aws_region = "us-east-1"
+
+# Resource naming (for multiple apps in same environment)
+resource_name_prefix = ""        # e.g., "team1" would create "team1-ebay-scanner-cluster"
+resource_name_suffix = ""        # e.g., "v2" would create "ebay-scanner-cluster-v2"
+
+# VPC Configuration
+vpc_name        = "default"      # Name for the VPC (used in tags and identification)
+use_default_vpc = true          # Use AWS default VPC (free tier friendly)
+
+# When use_default_vpc = false, customize these:
+# vpc_cidr = "10.0.0.0/16"
+# public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+# private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
+# enable_nat_gateway = false  # Set to true for private subnet internet access (costs money)
+
+# Availability zones (auto-detected if empty)
+availability_zones = []         # e.g., ["us-east-1a", "us-east-1b"]
+
+# Security configuration
+allowed_cidr_blocks = ["0.0.0.0/0"]  # Restrict to your IP: ["YOUR.IP.HERE/32"]
+
+# ECS Configuration
+instance_count_web    = 1
+instance_count_worker = 1
+cpu_web              = 256
+memory_web           = 512
+cpu_worker           = 256
+memory_worker        = 512
+
+# ECR configuration - free tier optimized (500MB total storage)
+ecr_image_retention_count = 3      # Keep only 3 most recent images
+enable_image_scanning     = false  # Disabled to stay within 100 scans/month limit
+
+# Database configuration (using existing RDS)
+db_host = "ebay-scanner.cq5c4w6q2zo6.us-east-1.rds.amazonaws.com"
+db_port = "5432"
+db_name = "ebay_scanner"
+db_user = "ebay_user"
+
+# GitHub configuration
+github_org  = "neighborlyjim"
+github_repo = "eBayScanner"
+
+# Additional tags for all resources
+additional_tags = {
+  Owner       = "YourName"
+  Team        = "YourTeam"
+  CostCenter  = "Engineering"
+  Backup      = "Daily"
+}
+
+# Example configurations for different deployment scenarios:
+
+# Scenario 1: Second app in same VPC
+# resource_name_suffix = "inventory"
+# app_name = "inventory-tracker"
+
+# Scenario 2: Production environment with custom VPC
+# environment = "production"
+# use_default_vpc = false
+# vpc_name = "production-vpc"
+# vpc_cidr = "10.1.0.0/16"
+# public_subnet_cidrs = ["10.1.1.0/24", "10.1.2.0/24"]
+# private_subnet_cidrs = ["10.1.10.0/24", "10.1.20.0/24"]
+# enable_nat_gateway = true
+# instance_count_web = 2
+# instance_count_worker = 2
+# cpu_web = 512
+# memory_web = 1024
+
+# Scenario 3: Staging environment with reduced resources
+# environment = "staging"
+# resource_name_suffix = "staging"
+# instance_count_web = 1
+# instance_count_worker = 0  # No worker in staging
+# cpu_web = 256
+# memory_web = 512
+
+# Scenario 4: Team-specific deployment
+# resource_name_prefix = "team-alpha"
+# app_name = "ebay-scanner"
+# additional_tags = {
+#   Team = "Alpha"
+#   Purpose = "Development"
+# }
