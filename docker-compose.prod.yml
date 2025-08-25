@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  web:
+    environment:
+      FLASK_ENV: production
+      FLASK_DEBUG: 0
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        python -c 'import time; import psycopg2; 
+        while True:
+          try: 
+            psycopg2.connect(host=\"db\", database=\"ebay_scanner\", user=\"ebay_user\", password=\"ebay_password\"); 
+            print(\"Database ready!\"); 
+            break
+          except: 
+            print(\"Database not ready, waiting...\"); 
+            time.sleep(2)' &&
+        echo 'Running database migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting production server...' &&
+        gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 60 --access-logfile - --error-logfile - app:app
+      "
