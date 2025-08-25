@@ -3,7 +3,7 @@ module "ecs_cluster" {
   source  = "umotif-public/ecs-fargate/aws"
   version = "~> 8.2"
 
-  name_prefix = local.name_prefix
+  name_prefix = "${local.name_prefix}${var.app_name}-web${local.name_suffix}"
 
   # Cluster and VPC configuration
   cluster_id = aws_ecs_cluster.main.id
@@ -74,7 +74,7 @@ module "ecs_worker" {
   source  = "umotif-public/ecs-fargate/aws"
   version = "~> 8.2"
 
-  name_prefix = "${local.name_prefix}worker-"
+  name_prefix = "${local.name_prefix}${var.app_name}-worker${local.name_suffix}"
 
   # Cluster and VPC configuration
   cluster_id = aws_ecs_cluster.main.id
