@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
 eBay API Connection Test
-Tests the eBay Finding API connection using your configured credentials.
+Tests the eBay Finding API connection using centralized API helper.
 """
 
 import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 import config
-from ebaysdk.finding import Connection as Finding
-from ebaysdk.exception import ConnectionError
+from ebay_api import ebay_api
 
 def test_api_connection():
-    """Test the eBay Finding API connection"""
+    """Test the eBay Finding API connection using centralized helper"""
     print("🔍 Testing eBay API Connection...")
     print(f"📋 Using App ID: {config.APP_ID}")
     print(f"📋 Using Client ID: {config.CLIENT_ID}")
@@ -18,57 +20,39 @@ def test_api_connection():
     print("-" * 50)
     
     try:
-        # Initialize the Finding API connection (using sandbox)
-        api = Finding(
-            appid=config.APP_ID, 
-            siteid="EBAY-US", 
-            api_version="1.13.0",
-            config_file=None,  # Disable YAML config file
-            domain="svcs.sandbox.ebay.com"  # Use sandbox environment for SBX keys
-        )
-        
-        # Test with a simple search
+        # Test with a simple search using centralized API
         print("🔍 Testing Finding API with a simple search...")
-        response = api.execute("findItemsByKeywords", {
-            "keywords": "iPhone",
-            "paginationInput": {
-                "entriesPerPage": 3
-            }
-        })
         
-        if hasattr(response.reply, 'searchResult'):
-            search_result = response.reply.searchResult
-            print(f"✅ API Connection Successful!")
-            print(f"📊 Search result count: {getattr(search_result, '_count', 0)}")
-            
-            if hasattr(search_result, 'item'):
-                items = search_result.item
-                print(f"� Found {len(items)} items")
-                
-                # Show first item as example
-                if items:
-                    first_item = items[0]
-                    print(f"\n📱 Sample item:")
-                    print(f"   Title: {first_item.title}")
-                    print(f"   Price: ${first_item.sellingStatus.currentPrice.value}")
-                    print(f"   Condition: {getattr(first_item, 'condition', {}).get('conditionDisplayName', 'N/A')}")
-                    print(f"   Time Left: {first_item.sellingStatus.timeLeft}")
+        # Use the centralized API helper
+        response = ebay_api.find_items_by_keywords("iPhone", pagination={"entriesPerPage": 3})
+        
+        # Extract items using the helper method
+        items = ebay_api.extract_items_from_response(response)
+        
+        print(f"✅ API Connection Successful!")
+        print(f"📊 Found {len(items)} items")
+        
+        # Show first item as example
+        if items:
+            first_item = items[0]
+            print(f"\n📱 Sample item:")
+            print(f"   Title: {first_item.get('title', 'N/A')}")
+            if 'sellingStatus' in first_item and 'currentPrice' in first_item['sellingStatus']:
+                price = first_item['sellingStatus']['currentPrice']
+                print(f"   Price: ${price.get('value', 'N/A')}")
             else:
-                print("📦 No items returned (normal for sandbox environment)")
-                
-            print("\n🎉 eBay API connection test PASSED!")
-            return True
+                print(f"   Price: N/A")
+            print(f"   Time Left: {first_item.get('sellingStatus', {}).get('timeLeft', 'N/A')}")
         else:
-            print("❌ Invalid response format")
-            return False
+            print("📦 No items returned (normal for sandbox environment)")
             
-    except ConnectionError as e:
-        print(f"❌ Connection Error: {e}")
+        print("\n🎉 eBay API connection test PASSED!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ API Error: {e}")
         if "Invalid App ID" in str(e):
             print("💡 Check your EBAY_APP_ID in the .env file")
-        return False
-    except Exception as e:
-        print(f"❌ Unexpected Error: {e}")
         return False
 
 def test_config():

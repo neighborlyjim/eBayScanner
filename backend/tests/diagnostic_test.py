@@ -1,73 +1,64 @@
 #!/usr/bin/env python3
 """
 eBay API Diagnostic Test
-Helps diagnose eBay API configuration issues
+Helps diagnose eBay API configuration issues using centralized API helper
 """
 
-import config
-from ebaysdk.finding import Connection as Finding
-from ebaysdk.exception import ConnectionError
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-def test_different_configs():
-    """Test different API configurations to identify the issue"""
+import config
+from ebay_api import ebay_api
+
+def test_api_endpoints():
+    """Test different API endpoints to identify working configuration"""
     
     print("🔍 eBay API Diagnostic Test")
     print("=" * 50)
     
-    configs_to_test = [
+    tests = [
         {
-            "name": "Production Finding API",
-            "config": {
-                "appid": config.APP_ID,
-                "siteid": "EBAY-US",
-                "api_version": "1.13.0",
-                "config_file": None
-            }
+            "name": "Find Items by Keywords",
+            "test_func": lambda: ebay_api.find_items_by_keywords("test", pagination={"entriesPerPage": 1})
         },
         {
-            "name": "Sandbox Finding API", 
-            "config": {
-                "appid": config.APP_ID,
-                "siteid": "EBAY-US", 
-                "api_version": "1.13.0",
-                "config_file": None,
-                "domain": "svcs.sandbox.ebay.com"
-            }
+            "name": "Find Items Advanced",
+            "test_func": lambda: ebay_api.find_items_advanced({"keywords": "test"}, pagination={"entriesPerPage": 1})
+        },
+        {
+            "name": "Find Completed Items",
+            "test_func": lambda: ebay_api.find_completed_items("test", pagination={"entriesPerPage": 1})
         }
     ]
     
-    for test_config in configs_to_test:
-        print(f"\n🧪 Testing: {test_config['name']}")
+    working_tests = []
+    
+    for test in tests:
+        print(f"\n🧪 Testing: {test['name']}")
         print("-" * 30)
         
         try:
-            api = Finding(**test_config['config'])
+            response = test['test_func']()
+            items = ebay_api.extract_items_from_response(response)
             
-            # Try a simple API call
-            response = api.execute("findItemsByKeywords", {
-                "keywords": "test",
-                "paginationInput": {"entriesPerPage": 1}
-            })
+            print(f"✅ Success with {test['name']}")
+            print(f"   Found {len(items)} items")
+            working_tests.append(test['name'])
             
-            print(f"✅ Success with {test_config['name']}")
-            return test_config
-            
-        except ConnectionError as e:
+        except Exception as e:
             print(f"❌ Failed: {e}")
             
             # Parse the error for more details
             error_str = str(e)
             if "Invalid Application" in error_str:
-                print("   💡 App ID might not be valid for Finding API")
+                print("   💡 App ID might not be valid for this API")
             elif "Authentication failed" in error_str:
                 print("   💡 Authentication issue - check your App ID")
             elif "Access denied" in error_str:
-                print("   💡 App doesn't have permission for Finding API")
-                
-        except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+                print("   💡 App doesn't have permission for this API")
     
-    return None
+    return working_tests
 
 def show_troubleshooting():
     """Show troubleshooting steps"""
@@ -92,13 +83,48 @@ def show_troubleshooting():
     print("   - Browse API uses OAuth (Client ID + Secret)")
     print("   - Might be what your app is configured for")
 
-if __name__ == "__main__":
-    working_config = test_different_configs()
+def test_configuration():
+    """Test centralized configuration"""
+    print("🔧 Testing Centralized Configuration...")
+    print("-" * 40)
     
-    if working_config:
-        print(f"\n🎉 Found working configuration: {working_config['name']}")
+    try:
+        # Test getting eBay connection
+        connection = ebay_api.get_connection()
+        print("✅ eBay connection created successfully")
+        
+        # Test configuration access
+        print(f"📋 App ID configured: {bool(config.APP_ID)}")
+        print(f"📋 Client ID configured: {bool(config.CLIENT_ID)}")
+        print(f"📋 Environment: {'Sandbox' if 'sandbox' in str(ebay_api.domain) else 'Production'}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Configuration error: {e}")
+        return False
+
+if __name__ == "__main__":
+    print("🚀 eBay Scanner API Diagnostic")
+    print("=" * 50)
+    
+    # Test configuration first
+    if not test_configuration():
+        print("\n❌ Configuration test failed")
+        show_troubleshooting()
+        sys.exit(1)
+    
+    print()
+    
+    # Test API endpoints
+    working_tests = test_api_endpoints()
+    
+    if working_tests:
+        print(f"\n🎉 Found {len(working_tests)} working API endpoints:")
+        for test in working_tests:
+            print(f"   ✅ {test}")
     else:
-        print("\n❌ No working configurations found")
+        print("\n❌ No working API endpoints found")
         show_troubleshooting()
         
         print("\n📧 Next Steps:")
